@@ -80,18 +80,18 @@ class GMRE(nn.Module):
         return out, loss    
 
 class ResidualBlock(nn.Module):
-    def __init__(self, device, num_comp, num_nodes, num_source, n_pred, n_his, channels, dilation, kernel_size, hra_cell):
+    def __init__(self, device, num_comp, num_nodes, num_source, n_pred, n_his, channels, dilation, kernel_size, gmre_cell):
         super(ResidualBlock, self).__init__()
         self.device = device
         self.num_source = num_source
         self.dilation = dilation
-        self.hra_cell = hra_cell
-        self.gmre_cell = nn.ModuleList()
+        self.gmre_cell = gmre_cell
+        self.gmre = nn.ModuleList()
         # N cells GMRE
-        for i in range(self.hra_cell):
-            self.gmre_cell.append(GMRE(self.device, num_comp, channels, num_nodes, num_source, n_his, self.dilation))
+        for i in range(self.gmre_cell):
+            self.gmre.append(GMRE(self.device, num_comp, channels, num_nodes, num_source, n_his, self.dilation))
         
-        self.num = self.hra_cell + 1         
+        self.num = self.gmre_cell + 1         
         # Temporal Encoder
         self.filter_convs = nn.Conv3d(in_channels = self.num * channels, 
                                       out_channels = num_source * channels, 
@@ -109,8 +109,8 @@ class ResidualBlock(nn.Module):
         x_list = []
         loss_list = []
         # GMRE-Cell
-        for i in range(self.hra_cell):
-            x_gmre, feature_loss = self.gmre_cell[i](x)
+        for i in range(self.gmre_cell):
+            x_gmre, feature_loss = self.gmre[i](x)
             x_list.append(x_gmre)
             loss_list.append(feature_loss)
         x_list.append(x)
@@ -176,7 +176,7 @@ class HRA(nn.Module):
         return out
     
 class GMRL(nn.Module):
-    def __init__(self, device, num_comp, num_nodes, num_source, n_his, n_pred, in_dim=1, out_dim=1, channels=16, kernel_size=2,layers=2,hra_cell=3,hra_bool=True):
+    def __init__(self, device, num_comp, num_nodes, num_source, n_his, n_pred, in_dim=1, out_dim=1, channels=16, kernel_size=2,layers=2,gmre_cell=3,hra_bool=True):
         super(GMRL, self).__init__()
         self.layers = layers
         self.in_dim = in_dim
@@ -194,7 +194,7 @@ class GMRL(nn.Module):
         self.residualblocks = nn.ModuleList()
         dilation = 1
         for i in range(self.layers):
-            self.residualblocks.append(ResidualBlock(device, num_comp, num_nodes, num_source, n_pred, n_his, 2*channels, dilation, kernel_size, hra_cell))
+            self.residualblocks.append(ResidualBlock(device, num_comp, num_nodes, num_source, n_pred, n_his, 2*channels, dilation, kernel_size, gmre_cell))
             dilation *= 2
         # Predictor with Hidden Representation Augmenter
         self.hra = HRA(device, num_nodes, num_source, n_pred, out_dim, 2*channels, self.hra_bool)
