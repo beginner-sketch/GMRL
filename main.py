@@ -36,7 +36,7 @@ parser.add_argument('-n_pred', default = 3, type=int, help = 'horizons')
 parser.add_argument('-scaler', default = "global_scaler", type=str, help = 'global_scaler,source_scaler or mix_scaler')
 parser.add_argument('-mode', default = 'train', type=str, help='train or eval')
 parser.add_argument('-version', default = 0, type=int, help='0-4')
-parser.add_argument('cuda', default = 1, type=int, help='0-1')
+parser.add_argument('cuda', default = 1, type=int, help='cuda index')
 args = parser.parse_args() 
 device = torch.device("cuda:{}".format(args.cuda)) if torch.cuda.is_available() else torch.device("cpu")
 dataset_name = args.data
