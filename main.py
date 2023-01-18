@@ -227,7 +227,7 @@ def main():
         train(device, model, dataset, n, n_source)
     if args.mode == 'eval':
         model.eval()
-        eval(device, n_source, model, dataset, n, np.arange(16,20))
+        eval(device, n_source, model, dataset, n, np.arange(0,5))
     end=time.time()
     print('Running time: %s hours.'%((end-start) // 3600))
     
