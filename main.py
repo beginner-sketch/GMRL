@@ -26,8 +26,8 @@ parser.add_argument('--test_batch_size', default = 8, type=int, help='test batch
 parser.add_argument('--lr', default = 0.0001, type=int, help='learning rate')
 parser.add_argument('--data', default = 'NYC', type=str, help = 'NYC')
 parser.add_argument('--indim', default = 1, type=int, help = 'input dimension')
-parser.add_argument('-mix_loss', default = True, type=bool, help='mix loss or total loss')
-parser.add_argument('-hra_cell', default = 3, type=int, help = 'the number of HRA cell')
+parser.add_argument('-mix_loss', default = True, type=bool, help='mix loss or reg loss')
+parser.add_argument('-gmre_cell', default = 3, type=int, help = 'the number of GMRE cell')
 parser.add_argument('-num_comp', default = 6, type=int, help = 'number of Gaussian components')
 parser.add_argument('-hra_bool', default = 1, type=bool, help='using HRA or not')
 parser.add_argument('-hidden_channels', default = 16, type=int, help = 'hidden channels')
@@ -36,14 +36,14 @@ parser.add_argument('-n_pred', default = 3, type=int, help = 'horizons')
 parser.add_argument('-scaler', default = "global_scaler", type=str, help = 'global_scaler,source_scaler or mix_scaler')
 parser.add_argument('-mode', default = 'train', type=str, help='train or eval')
 parser.add_argument('-version', default = 0, type=int, help='0-4')
-parser.add_argument('cuda', default = 1, type=int, help='cuda index')
+parser.add_argument('cuda', default = 1, type=int, help='0-1')
 args = parser.parse_args() 
 device = torch.device("cuda:{}".format(args.cuda)) if torch.cuda.is_available() else torch.device("cpu")
 dataset_name = args.data
 layers = int(np.log2(args.n_his))
 #######################################
 def train(device, model, dataset, n, n_source):
-    target_n = "num_comp{}_hc{}_l{}_hracell_{}_his{}_pred{}_v{}_scaler{}_mixloss{}_hrabool{}".format(args.num_comp, args.hidden_channels, layers, args.hra_cell,
+    target_n = "num_comp{}_hc{}_l{}_gmrecell_{}_his{}_pred{}_v{}_scaler{}_mixloss{}_hrabool{}".format(args.num_comp, args.hidden_channels, layers, args.gmre_cell,
                                                                                                   args.n_his, args.n_pred,args.version,args.scaler,
                                                                                                   args.mix_loss,args.hra_bool)
     target_fname = '{}_{}_{}'.format(args.model, dataset_name, target_n)
@@ -71,8 +71,15 @@ def train(device, model, dataset, n, n_source):
             model.zero_grad()
             pred, feature_loss = model(xh)
             if args.mix_loss:
-                reg_loss = criterion(pred, y)
-                loss = reg_loss + feature_loss
+                var = torch.var(pred, unbiased=True)
+                shrinkage = 1 - (3 - 2) * var / torch.sum(pred ** 2)
+                theta = shrinkage * pred
+                loss_mix = criterion(theta, y)
+#                 loss = loss_mix
+#                 print("MLE loss", loss_mix)
+#                 print("VI loss", feature_loss)
+#                 exit()
+                loss = loss_mix + feature_loss
             else:
                 loss = criterion(pred, y)
             
@@ -127,7 +134,7 @@ def eval(device, n_source, model, dataset, n, versions):
     for _v in versions:
 #         torch.cuda.empty_cache()
         min_val = min_va_val = np.array([4e1, 1e5, 1e5] * 3)  
-        target_n = "num_comp{}_hc{}_l{}_hracell{}_his{}_pred{}_v{}_scaler{}_mixloss{}_hrabool{}".format(args.num_comp, args.hidden_channels, layers, args.hra_cell,                                                                                                     args.n_his,args.n_pred,_v,args.scaler,args.mix_loss,args.hra_bool)
+        target_n = "num_comp{}_hc{}_l{}_gmrecell{}_his{}_pred{}_v{}_scaler{}_mixloss{}_hrabool{}".format(args.num_comp, args.hidden_channels, layers, args.gmre_cell,                                                                                                     args.n_his,args.n_pred,_v,args.scaler,args.mix_loss,args.hra_bool)
         target_fname = '{}_{}_{}'.format(args.model, dataset_name, target_n)
         target_model_path = os.path.join('MODEL', '{}.h5'.format(target_fname))        
         if os.path.isfile(target_model_path):
@@ -185,7 +192,7 @@ def main():
     print('=' * 10)
     print('| Model: {0} | Dataset: {1} | History: {2} | Horizon: {3} | HRA: {4}'.format(args.model, dataset_name, args.n_his, args.n_pred,args.hra_bool))
     print("version: ", args.version)
-    print("number of HRA cells: ", args.hra_cell)
+    print("number of GMRE cells: ", args.gmre_cell)
     print("number of Gaussian components: ", args.num_comp)
     print("channel in: ", args.indim)
     print("hidden channels: ", args.hidden_channels)
@@ -213,7 +220,7 @@ def main():
     print("compiling model...")
 
     model = GMRL(device, args.num_comp, num_nodes=n, num_source=n_source, n_his=args.n_his, n_pred=args.n_pred, in_dim=1, out_dim=1, 
-                    channels=args.hidden_channels, kernel_size=2, layers=layers, hra_cell=args.hra_cell,hra_bool=args.hra_bool).to(device)
+                    channels=args.hidden_channels, kernel_size=2, layers=layers, gmre_cell=args.gmre_cell,hra_bool=args.hra_bool).to(device)
 
     print('=' * 10)
     print("init model...")
@@ -227,7 +234,7 @@ def main():
         train(device, model, dataset, n, n_source)
     if args.mode == 'eval':
         model.eval()
-        eval(device, n_source, model, dataset, n, np.arange(0,5))
+        eval(device, n_source, model, dataset, n, np.arange(16,20))
     end=time.time()
     print('Running time: %s hours.'%((end-start) // 3600))
     
