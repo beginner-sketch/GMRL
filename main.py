@@ -26,7 +26,7 @@ parser.add_argument('--test_batch_size', default = 8, type=int, help='test batch
 parser.add_argument('--lr', default = 0.0001, type=int, help='learning rate')
 parser.add_argument('--data', default = 'NYC', type=str, help = 'NYC')
 parser.add_argument('--indim', default = 1, type=int, help = 'input dimension')
-parser.add_argument('-mix_loss', default = True, type=bool, help='mix loss or reg loss')
+parser.add_argument('-mix_loss', default = False, type=bool, help='mix loss or reg loss')
 parser.add_argument('-gmre_cell', default = 3, type=int, help = 'the number of GMRE cell')
 parser.add_argument('-num_comp', default = 6, type=int, help = 'number of Gaussian components')
 parser.add_argument('-hra_bool', default = 1, type=bool, help='using HRA or not')
@@ -75,10 +75,6 @@ def train(device, model, dataset, n, n_source):
                 shrinkage = 1 - (3 - 2) * var / torch.sum(pred ** 2)
                 theta = shrinkage * pred
                 loss_mix = criterion(theta, y)
-#                 loss = loss_mix
-#                 print("MLE loss", loss_mix)
-#                 print("VI loss", feature_loss)
-#                 exit()
                 loss = loss_mix + feature_loss
             else:
                 loss = criterion(pred, y)
