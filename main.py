@@ -77,7 +77,7 @@ def train(device, model, dataset, n, n_source):
                 loss_mix = criterion(theta, y)
                 loss = loss_mix + feature_loss
             else:
-                loss = criterion(pred, y)
+                loss = criterion(pred, y) + feature_loss
             
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 10)
