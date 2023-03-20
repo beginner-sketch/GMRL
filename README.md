@@ -15,7 +15,7 @@ torch-summary (>= 1.4.5)
 
 # Model Training
 ``` python
-python main.py -mode train cuda_name
+python main.py -mode train -version 0 cuda_name
 ```
 
 # Model Evaluation
