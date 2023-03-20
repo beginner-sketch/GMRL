@@ -26,7 +26,6 @@ parser.add_argument('--test_batch_size', default = 8, type=int, help='test batch
 parser.add_argument('--lr', default = 0.0001, type=int, help='learning rate')
 parser.add_argument('--data', default = 'NYC', type=str, help = 'NYC')
 parser.add_argument('--indim', default = 1, type=int, help = 'input dimension')
-parser.add_argument('-mix_loss', default = False, type=bool, help='mix loss or reg loss')
 parser.add_argument('-gmre_cell', default = 3, type=int, help = 'the number of GMRE cell')
 parser.add_argument('-num_comp', default = 6, type=int, help = 'number of Gaussian components')
 parser.add_argument('-hra_bool', default = 1, type=bool, help='using HRA or not')
@@ -43,9 +42,9 @@ dataset_name = args.data
 layers = int(np.log2(args.n_his))
 #######################################
 def train(device, model, dataset, n, n_source):
-    target_n = "num_comp{}_hc{}_l{}_gmrecell_{}_his{}_pred{}_v{}_scaler{}_mixloss{}_hrabool{}".format(args.num_comp, args.hidden_channels, layers, args.gmre_cell,
+    target_n = "num_comp{}_hc{}_l{}_gmrecell_{}_his{}_pred{}_v{}_scaler{}_hrabool{}".format(args.num_comp, args.hidden_channels, layers, args.gmre_cell,
                                                                                                   args.n_his, args.n_pred,args.version,args.scaler,
-                                                                                                  args.mix_loss,args.hra_bool)
+                                                                                                 args.hra_bool)
     target_fname = '{}_{}_{}'.format(args.model, dataset_name, target_n)
     target_model_path = os.path.join('MODEL', '{}.h5'.format(target_fname))
     print('=' * 10)
@@ -70,15 +69,7 @@ def train(device, model, dataset, n, n_source):
             y = torch.tensor(y, dtype=torch.float32).to(device)
             model.zero_grad()
             pred, feature_loss = model(xh)
-            if args.mix_loss:
-                var = torch.var(pred, unbiased=True)
-                shrinkage = 1 - (3 - 2) * var / torch.sum(pred ** 2)
-                theta = shrinkage * pred
-                loss_mix = criterion(theta, y)
-                loss = loss_mix + feature_loss
-            else:
-                loss = criterion(pred, y) + feature_loss
-            
+            loss = criterion(pred, y) + feature_loss          
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 10)
             optimizer.step()
@@ -130,7 +121,8 @@ def eval(device, n_source, model, dataset, n, versions):
     for _v in versions:
 #         torch.cuda.empty_cache()
         min_val = min_va_val = np.array([4e1, 1e5, 1e5] * 3)  
-        target_n = "num_comp{}_hc{}_l{}_gmrecell{}_his{}_pred{}_v{}_scaler{}_mixloss{}_hrabool{}".format(args.num_comp, args.hidden_channels, layers, args.gmre_cell,                                                                                                     args.n_his,args.n_pred,_v,args.scaler,args.mix_loss,args.hra_bool)
+        target_n = "num_comp{}_hc{}_l{}_gmrecell{}_his{}_pred{}_v{}_scaler{}_hrabool{}".format(args.num_comp, args.hidden_channels, layers, 
+                                                                                               args.gmre_cell, args.n_his,args.n_pred,_v,args.scaler,args.hra_bool)
         target_fname = '{}_{}_{}'.format(args.model, dataset_name, target_n)
         target_model_path = os.path.join('MODEL', '{}.h5'.format(target_fname))        
         if os.path.isfile(target_model_path):
@@ -194,7 +186,6 @@ def main():
     print("hidden channels: ", args.hidden_channels)
     print("layers: ", layers)
     print("scaler form: ", args.scaler)
-    print("mix loss: ", args.mix_loss)
     start=time.time()
     # load data
     print('=' * 10)
@@ -205,13 +196,6 @@ def main():
         n_slots = 48
         n_source = 4
         dataset = data_gen('data/NYC.h5', (n_train, n_val, n_test), n, args.n_his + args.n_pred, n_source, n_slots, args.scaler)
-    if dataset_name == 'AIR':
-        n_train, n_val, n_test = 877, 292, 292
-        n = 10
-        # 24 : time interval is an hour
-        n_slots = 24
-        n_source = 3
-        dataset = data_gen('data/air.h5', (n_train, n_val, n_test), n, args.n_his + args.n_pred, n_source, n_slots, args.scaler)
     print('=' * 10)
     print("compiling model...")
 
@@ -230,7 +214,7 @@ def main():
         train(device, model, dataset, n, n_source)
     if args.mode == 'eval':
         model.eval()
-        eval(device, n_source, model, dataset, n, np.arange(16,20))
+        eval(device, n_source, model, dataset, n, np.arange(0,5))
     end=time.time()
     print('Running time: %s hours.'%((end-start) // 3600))
     
