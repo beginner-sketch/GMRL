@@ -41,7 +41,7 @@ class GMRE(nn.Module):
     
     def calculate_loss(self, alphas, log_component_prob, weightedlogPdf):
         first_item = torch.mean(weightedlogPdf.exp() * log_component_prob)
-        q_z = weightedlogPdf.mean((0,2))
+        q_z = weightedlogPdf.mean(2)
         KL = F.kl_div(q_z, alphas, reduction='mean')
         loss =  KL - first_item
         return loss        
