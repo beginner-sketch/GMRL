@@ -24,8 +24,10 @@ parser.add_argument('--model', default = 'GMRL', type=str, help = 'model name')
 parser.add_argument('--batch_size', default = 8, type=int, help='batch size')
 parser.add_argument('--test_batch_size', default = 8, type=int, help='test batch size')
 parser.add_argument('--lr', default = 0.0001, type=int, help='learning rate')
+parser.add_argument('--lamb', default = 1, type=int, help='balancing parameter')
 parser.add_argument('--data', default = 'NYC', type=str, help = 'NYC')
 parser.add_argument('--indim', default = 1, type=int, help = 'input dimension')
+parser.add_argument('-mix_loss', default = True, type=bool, help='mix loss or reg loss')
 parser.add_argument('-num_comp', default = 17, type=int, help = 'number of Gaussian components')
 parser.add_argument('-hra_bool', default = 1, type=bool, help='using HRA or not')
 parser.add_argument('-hidden_channels', default = 24, type=int, help = 'hidden channels')
@@ -41,9 +43,7 @@ dataset_name = args.data
 layers = int(np.log2(args.n_his))
 #######################################
 def train(device, model, dataset, n, n_source):
-    target_n = "num_comp{}_hc{}_l{}_his{}_pred{}_v{}_scaler{}_hrabool{}".format(args.num_comp, args.hidden_channels, layers, 
-                                                                                                  args.n_his, args.n_pred,args.version,args.scaler,
-                                                                                                 args.hra_bool)
+    target_n = "num_comp{}_hc{}_l{}_his{}_pred{}_v{}_scaler{}_hrabool{}".format(args.num_comp, args.hidden_channels, layers, args.n_his, args.n_pred, args.version, args.scaler, args.hra_bool)
     target_fname = '{}_{}_{}'.format(args.model, dataset_name, target_n)
     target_model_path = os.path.join('MODEL', '{}.h5'.format(target_fname))
     print('=' * 10)
@@ -68,7 +68,11 @@ def train(device, model, dataset, n, n_source):
             y = torch.tensor(y, dtype=torch.float32).to(device)
             model.zero_grad()
             pred, feature_loss = model(xh)
-            loss = criterion(pred, y) + feature_loss          
+            if args.mix_loss:
+                loss_reg = criterion(pred, y)
+                loss = loss_reg + lam * feature_loss
+            else:
+                loss = criterion(pred, y)   
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 10)
             optimizer.step()
@@ -120,8 +124,7 @@ def eval(device, n_source, model, dataset, n, versions):
     for _v in versions:
 #         torch.cuda.empty_cache()
         min_val = min_va_val = np.array([4e1, 1e5, 1e5] * 3)  
-        target_n = "num_comp{}_hc{}_l{}_his{}_pred{}_v{}_scaler{}_hrabool{}".format(args.num_comp, args.hidden_channels, layers, 
-                                                                                               args.n_his,args.n_pred,_v,args.scaler,args.hra_bool)
+        target_n = "num_comp{}_hc{}_l{}_his{}_pred{}_v{}_scaler{}_hrabool{}".format(args.num_comp, args.hidden_channels, layers, args.n_his, args.n_pred, _v, args.scaler, args.hra_bool)
         target_fname = '{}_{}_{}'.format(args.model, dataset_name, target_n)
         target_model_path = os.path.join('MODEL', '{}.h5'.format(target_fname))        
         if os.path.isfile(target_model_path):
