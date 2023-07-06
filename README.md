@@ -1,5 +1,5 @@
 # Learning Gaussian Mixture Representations for Tensor Time Series Forecasting
-This is a implementation of GMRL.
+This is a implementation of our GMRL model, which has been accepted to IJCAI 2023.
 
 # Installation Dependencies
 
